@@ -12,6 +12,7 @@ import { Heart, ShoppingCart, ChevronDown } from 'lucide-react'
 import { apiFetch, BackendProduct } from '@/lib/api'
 
 type UIProduct = { id: string; name: string; price: number; category?: string; color?: string; image?: string };
+const STATIC_MAIN_CATEGORIES = ['all', 'men', 'women', 'kids'];
 
 export default function ShopPage() {
   const searchParams = useSearchParams()
@@ -23,7 +24,7 @@ export default function ShopPage() {
   const [selectedColor, setSelectedColor] = useState<string>('all')
   const [favorites, setFavorites] = useState<string[]>([])
   const [products, setProducts] = useState<UIProduct[]>([])
-  const [categoryOptions, setCategoryOptions] = useState<string[]>(['all'])
+  const [categoryOptions] = useState<string[]>(STATIC_MAIN_CATEGORIES)
   const { addToCart } = useCart()
 
   const filteredProducts = useMemo(() => {
@@ -46,26 +47,25 @@ export default function ShopPage() {
   useEffect(() => {
     (async () => {
       try {
-        const categoryId = searchParams.get('categoryId')
-        const res = categoryId ? await apiFetch(`/api/v1/products/category/${categoryId}`) : await apiFetch('/api/v1/products/getAll')
-        const list: BackendProduct[] = (categoryId ? res?.data : res?.data) || []
+        const categoryType = searchParams.get('category')
+        const slug = categoryType && categoryType !== 'all' ? categoryType : null
+
+        const res = slug
+          ? await apiFetch(`/api/v1/products/category/${slug}`)
+          : await apiFetch('/api/v1/products/getAll')
+
+        const list: BackendProduct[] = res?.data || []
         const mapped: UIProduct[] = list.map(p => ({
           id: p._id,
           name: p.name,
           price: p.price,
-          category: (typeof p.category === 'object' && (p.category?.type || p.category?.name)) || undefined,
+          category: (typeof p.category === 'object' && (p.category?.type || p.category?.name) || '').toString().toLowerCase(),
           image: (p.imageUrls && p.imageUrls[0]) || '/placeholder.jpg',
         }))
         setProducts(mapped)
       } catch {}
-      try {
-        const catRes = await apiFetch('/api/v1/categories')
-        const cats: any[] = catRes?.data || []
-        const unique = Array.from(new Set(cats.map((c: any) => (c.type || '').toLowerCase()).filter(Boolean)))
-        setCategoryOptions(['all', ...unique])
-      } catch {}
     })()
-  }, [])
+  }, [searchParams])
 
   return (
     <>

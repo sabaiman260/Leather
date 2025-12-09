@@ -1,32 +1,38 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
-import { apiFetch } from '@/lib/api'
+import { useState } from 'react'
 
-type Cat = { _id: string; name: string; type?: string }
+const categories = [
+  {
+    name: 'WOMEN',
+    image: '/woman.jpg',
+    link: '/shop?category=women'
+  },
+  {
+    name: 'MEN',
+    image: '/man.jpg',
+    link: '/shop?category=men'
+  },
+  {
+    name: 'GIFT IDEAS',
+    image: '/gifts.jpg',
+    link: '/shop?category=gifts'
+  },
+  {
+    name: 'TRAVEL',
+    image: '/travel.jpg',
+    link: '/shop?category=travel'
+  },
+  {
+    name: 'OFFICE',
+    image: '/office.jpg',
+    link: '/shop?category=office'
+  }
+]
 
 export default function Categories() {
-  const [topCats, setTopCats] = useState<Cat[]>([])
-  const [subs, setSubs] = useState<Cat[]>([])
-  const [activeTop, setActiveTop] = useState<string | null>(null)
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await apiFetch('/api/v1/categories?parent=null')
-        setTopCats(res?.data || [])
-      } catch {}
-    })()
-  }, [])
-
-  const loadSubs = async (id: string) => {
-    setActiveTop(id)
-    try {
-      const res = await apiFetch(`/api/v1/categories?parent=${id}`)
-      setSubs(res?.data || [])
-    } catch {}
-  }
+  const [hoveredCategory, setHoveredCategory] = useState<string | null>(null)
 
   return (
     <section className="bg-transparent py-16 md:py-20 relative overflow-hidden">
@@ -38,19 +44,20 @@ export default function Categories() {
 
       <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 relative z-10">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 md:gap-6">
-          {topCats.map((category) => (
-            <button
-              key={category._id}
-              type="button"
+          {categories.map((category) => (
+            <Link
+              key={category.name}
+              href={category.link}
               className="group relative flex items-center justify-center"
-              onClick={() => loadSubs(category._id)}
+              onMouseEnter={() => setHoveredCategory(category.name)}
+              onMouseLeave={() => setHoveredCategory(null)}
             >
               {/* Rounded Container */}
               <div className="relative w-full aspect-square rounded-full overflow-hidden bg-neutral-700">
                 {/* Background Image */}
                 {/* eslint-disable-next-line react/no-inline-styles */}
                 <div className="absolute inset-0 transition-transform duration-500 group-hover:scale-110">
-                  <img src={'/placeholder.jpg'} alt={category.name} className="w-full h-full object-cover" />
+                  <img src={category.image} alt={category.name} className="w-full h-full object-cover" />
                   {/* Gradient Overlay */}
                   <div className="absolute inset-0 bg-linear-to-t from-black/60 via-black/30 to-transparent group-hover:from-black/70 group-hover:via-black/40 transition-all duration-300" />
                 </div>
@@ -62,18 +69,9 @@ export default function Categories() {
                   </h3>
                 </div>
               </div>
-            </button>
+            </Link>
           ))}
         </div>
-        {activeTop && (
-          <div className="mt-8 grid grid-cols-2 md:grid-cols-6 gap-4 md:gap-6">
-            {subs.map(s => (
-              <Link prefetch={false} key={s._id} href={`/shop?categoryId=${s._id}`} className="block border border-border px-4 py-3 text-center hover:bg-muted">
-                {s.name}
-              </Link>
-            ))}
-          </div>
-        )}
       </div>
     </section>
   )
