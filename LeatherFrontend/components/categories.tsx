@@ -20,7 +20,7 @@ const categories = [
     link: '/shop?category=gifts'
   },
   {
-    name: 'TRAVEL',
+    name: 'KIDS',
     image: '/travel.jpg',
     link: '/shop?category=travel'
   },
