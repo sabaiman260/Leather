@@ -17,7 +17,10 @@ export const createProductSchema = z.object({
   sizes: stringOrArray.optional(),
   colors: stringOrArray.optional(),
   specs: stringOrArray.optional(),
-  isActive: z.boolean().optional(),
+  isActive: z.preprocess(
+    (val) => (typeof val === "string" ? val === "true" : val),
+    z.boolean().optional()
+  ),
 });
 
 export const updateProductSchema = z.object({

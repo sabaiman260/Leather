@@ -13,10 +13,20 @@ const getAllCategories = asyncHandler(async (_req, res) => {
 const createCategory = asyncHandler(async (req, res) => {
   const { name, description } = req.body;
 
-  const existing = await Category.findOne({ name });
-  if (existing) throw new ApiError(400, "Category already exists");
+  if (!name) throw new ApiError(400, "Category name is required");
 
-  const category = await Category.create({ name, description });
+  const existing = await Category.findOne({ name: name.trim().toUpperCase() });
+  if (existing) {
+    return res
+      .status(200)
+      .json(new ApiResponse(200, existing, "Category already exists"));
+  }
+
+  const category = await Category.create({
+    name: name.trim().toUpperCase(),
+    description: description || `${name} category`
+  });
+
   return res.status(201).json(new ApiResponse(201, category, "Category created successfully"));
 });
 
@@ -27,7 +37,7 @@ const updateCategory = asyncHandler(async (req, res) => {
 
   const { name, description, isActive } = req.body;
 
-  if (name) category.name = name;
+  if (name) category.name = name.trim().toUpperCase();
   if (description !== undefined) category.description = description;
   if (isActive !== undefined) category.isActive = isActive;
 
@@ -64,4 +74,3 @@ export {
   deleteCategory,
   searchCategories
 };
-

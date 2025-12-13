@@ -7,7 +7,10 @@ import S3UploadHelper from "../../shared/helpers/s3Upload.js";
 
 // Get all products
 const getAllProducts = asyncHandler(async (_req, res) => {
-  const products = await Product.find({ isActive: true }).populate("category", "name slug");
+  const products = await Product.find({ isActive: true }).populate(
+    "category",
+    "name slug"
+  );
 
   const productsWithUrls = await Promise.all(
     products.map(async (p) => {
@@ -23,48 +26,20 @@ const getAllProducts = asyncHandler(async (_req, res) => {
     .json(new ApiResponse(200, productsWithUrls, "All products fetched"));
 });
 
-// Get products by category slug (STATIC FRONTEND LOGIC)
-const getProductsBySlug = asyncHandler(async (req, res) => {
-  const { slug } = req.params;
-  if (!slug) throw new ApiError(400, "Category slug is required");
+// Get products by category ID
+const getProductsByCategoryId = asyncHandler(async (req, res) => {
+  const { categoryId } = req.params;
+  if (!categoryId) throw new ApiError(400, "Category is required");
 
-  const normalized = slug.trim().toLowerCase();
-  const mainTypes = ["men", "women", "kids"];
-
-  // If slug matches a main category type, include all categories of that type
-  if (mainTypes.includes(normalized)) {
-    const categories = await Category.find({
-      type: { $regex: `^${normalized}$`, $options: "i" },
-      isActive: true,
-    });
-    const categoryIds = categories.map((c) => c._id);
-    const products = await Product.find({
-      category: { $in: categoryIds },
-      isActive: true,
-    }).populate("category", "name slug type");
-
-    const productsWithUrls = await Promise.all(
-      products.map(async (p) => {
-        const imageUrls = await Promise.all(
-          p.images.map((key) => S3UploadHelper.getSignedUrl(key))
-        );
-        return { ...p._doc, imageUrls };
-      })
-    );
-
-    return res
-      .status(200)
-      .json(new ApiResponse(200, productsWithUrls, "Products fetched by main category"));
-  }
-
-  // Otherwise, match exact slug (subcategory)
-  const category = await Category.findOne({ slug: normalized, isActive: true });
+  // Find the category by slug
+  const category = await Category.findOne({ slug: categoryId });
   if (!category) throw new ApiError(404, "Category not found");
 
-  const products = await Product.find({
-    category: category._id,
-    isActive: true,
-  }).populate("category", "name slug");
+  // Fetch products by category _id
+  const products = await Product.find({ category: category._id, isActive: true }).populate(
+    "category",
+    "name slug"
+  );
 
   const productsWithUrls = await Promise.all(
     products.map(async (p) => {
@@ -75,10 +50,9 @@ const getProductsBySlug = asyncHandler(async (req, res) => {
     })
   );
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, productsWithUrls, "Products fetched by category"));
+  return res.status(200).json(new ApiResponse(200, productsWithUrls, "Products fetched by category"));
 });
+
 
 // Create product
 const createProduct = asyncHandler(async (req, res) => {
@@ -98,7 +72,6 @@ const createProduct = asyncHandler(async (req, res) => {
   if (!name || !price || !category)
     throw new ApiError(400, "Name, price and category are required");
 
-  // Convert data types
   const toNumber = (v) => (v === undefined ? undefined : Number(v));
   const toArray = (v) =>
     Array.isArray(v)
@@ -168,15 +141,6 @@ const updateProduct = asyncHandler(async (req, res) => {
     isActive,
   } = req.body;
 
-  // Upload new images
-  if (Array.isArray(req.files) && req.files.length > 0) {
-    const uploads = await S3UploadHelper.uploadMultipleFiles(
-      req.files,
-      "product-images"
-    );
-    product.images = uploads.map((u) => u.key);
-  }
-
   const toNumber = (v) => (v === undefined ? undefined : Number(v));
   const toArray = (v) =>
     Array.isArray(v)
@@ -185,19 +149,26 @@ const updateProduct = asyncHandler(async (req, res) => {
       ? v.split(",").map((s) => s.trim()).filter(Boolean)
       : undefined;
 
-  // Update fields
   if (name) product.name = name;
   if (description) product.description = description;
-  if (price) product.price = toNumber(price);
-  if (discount) product.discount = toNumber(discount);
-  if (stock) product.stock = toNumber(stock);
+  if (price !== undefined) product.price = toNumber(price);
+  if (discount !== undefined) product.discount = toNumber(discount);
+  if (stock !== undefined) product.stock = toNumber(stock);
   if (category) product.category = category;
   if (sizes) product.sizes = toArray(sizes);
   if (colors) product.colors = toArray(colors);
   if (specs) product.specs = toArray(specs);
   if (isActive !== undefined)
-    product.isActive =
-      typeof isActive === "string" ? isActive === "true" : isActive;
+    product.isActive = typeof isActive === "string" ? isActive === "true" : isActive;
+
+  // Upload new images
+  if (Array.isArray(req.files) && req.files.length > 0) {
+    const uploads = await S3UploadHelper.uploadMultipleFiles(
+      req.files,
+      "product-images"
+    );
+    product.images = uploads.map((u) => u.key);
+  }
 
   await product.save();
 
@@ -228,8 +199,7 @@ const getProductDetail = asyncHandler(async (req, res) => {
     "category",
     "name slug"
   );
-  if (!product || !product.isActive)
-    throw new ApiError(404, "Product not found");
+  if (!product || !product.isActive) throw new ApiError(404, "Product not found");
 
   const imageUrls = await Promise.all(
     product.images.map((key) => S3UploadHelper.getSignedUrl(key))
@@ -261,14 +231,12 @@ const searchProducts = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(
-      new ApiResponse(200, productsWithUrls, "Product search results")
-    );
+    .json(new ApiResponse(200, productsWithUrls, "Product search results"));
 });
 
 export {
   getAllProducts,
-  getProductsBySlug,
+  getProductsByCategoryId,
   createProduct,
   updateProduct,
   deleteProduct,

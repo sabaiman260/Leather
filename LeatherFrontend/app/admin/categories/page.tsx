@@ -11,18 +11,22 @@ type Category = {
   isActive?: boolean
 }
 
+const FIXED_CATEGORIES = ['MEN', 'WOMEN', 'KIDS', 'OFFICE', 'GIFT IDEAS']
+
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([])
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   const loadCategories = async () => {
     try {
       const res = await apiFetch('/api/v1/categories')
-      setCategories(res?.data || [])
+      setCategories(
+        res?.data?.filter((c: Category) =>
+          FIXED_CATEGORIES.includes(c.name.toUpperCase())
+        ) || []
+      )
       setError(null)
-    } catch (e: any) {
+    } catch {
       setError('Failed to load categories')
     }
   }
@@ -31,90 +35,65 @@ export default function AdminCategoriesPage() {
     loadCategories()
   }, [])
 
-  const createCategory = async () => {
-    if (!name.trim()) return setError('Category name is required')
+  const ensureCategories = async () => {
     try {
       const token = localStorage.getItem('accessToken')
 
-      const res = await fetch(`${API_BASE_URL}/api/v1/categories/create`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({
-          name,
-          description,
-          parentCategory: null // option A → always null
-        })
-      })
+      for (const name of FIXED_CATEGORIES) {
+        if (!categories.find(c => c.name.toUpperCase() === name)) {
+          await fetch(`${API_BASE_URL}/api/v1/categories/create`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({
+              name,
+              description: `${name} category`
+            })
+          })
+        }
+      }
 
-      if (!res.ok) throw new Error('Failed to create category')
-
-      setError(null)
-      setName('')
-      setDescription('')
-      loadCategories()
+      await loadCategories()
     } catch (e: any) {
-      setError(e?.message || 'Error creating category')
+      setError(e?.message || 'Failed to ensure categories')
     }
   }
 
   const deleteCategory = async (id: string) => {
     try {
       const token = localStorage.getItem('accessToken')
-
-      const res = await fetch(`${API_BASE_URL}/api/v1/categories/${id}`, {
+      await fetch(`${API_BASE_URL}/api/v1/categories/${id}`, {
         method: 'DELETE',
         credentials: 'include',
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        }
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
       })
-
-      if (!res.ok) throw new Error('Failed to delete')
-
-      setError(null)
-      loadCategories()
-    } catch (e: any) {
-      setError(e?.message || 'Error deleting category')
+      await loadCategories()
+    } catch {
+      setError('Failed to delete category')
     }
   }
 
   return (
     <div className="space-y-8">
       <h2 className="text-2xl font-serif">Categories</h2>
-      {error && <p className="text-red-600 text-sm">{error}</p>}
+      {error && <p className="text-red-600">{error}</p>}
 
-      <div className="border p-4">
-        <h3 className="text-lg mb-3 font-serif">Create Category</h3>
+      <button
+        onClick={ensureCategories}
+        className="px-4 py-2 bg-black text-white"
+      >
+        Ensure 5 Main Categories
+      </button>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <input
-            className="border px-3 py-2"
-            placeholder="Category name (e.g. WOMEN)"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <input
-            className="border px-3 py-2"
-            placeholder="Description (optional)"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </div>
-
-        <button onClick={createCategory} className="mt-3 px-4 py-2 bg-black text-white">
-          Create Category
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {categories.map((c) => (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
+        {categories.map(c => (
           <div key={c._id} className="border p-4">
-            <h4 className="text-md font-semibold">{c.name}</h4>
+            <h4 className="font-semibold">{c.name}</h4>
             <p className="text-xs opacity-60">Slug: {c.slug}</p>
+            <p className="text-xs opacity-60">{c.description}</p>
             <button
               onClick={() => deleteCategory(c._id)}
               className="mt-2 text-red-600 text-xs"

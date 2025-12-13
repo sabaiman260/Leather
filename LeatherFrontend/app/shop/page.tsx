@@ -8,35 +8,67 @@ import Header from '@/components/header'
 import Footer from '@/components/footer'
 import { Button } from '@/components/ui/button'
 import { useCart } from '@/components/cart-context'
-import { Heart, ShoppingCart, ChevronDown } from 'lucide-react'
+import { Heart, ShoppingCart } from 'lucide-react'
 import { apiFetch, BackendProduct } from '@/lib/api'
 
-type UIProduct = { id: string; name: string; price: number; category?: string; color?: string; image?: string };
-const STATIC_MAIN_CATEGORIES = ['all', 'men', 'women', 'kids'];
+type UIProduct = {
+  id: string
+  name: string
+  price: number
+  image: string
+}
 
 export default function ShopPage() {
   const searchParams = useSearchParams()
-  const categoryParam = searchParams.get('category')
+  const categorySlug = searchParams.get('category') // men, women, kids, office, gift-ideas
   const queryParam = searchParams.get('q')
 
-  const [selectedCategory, setSelectedCategory] = useState<string>(categoryParam || 'all')
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 500])
-  const [selectedColor, setSelectedColor] = useState<string>('all')
-  const [favorites, setFavorites] = useState<string[]>([])
   const [products, setProducts] = useState<UIProduct[]>([])
-  const [categoryOptions] = useState<string[]>(STATIC_MAIN_CATEGORIES)
+  const [favorites, setFavorites] = useState<string[]>([])
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 500])
+
   const { addToCart } = useCart()
 
+  /* ---------------- FETCH PRODUCTS ---------------- */
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = categorySlug
+          ? await apiFetch(`/api/v1/products/category/${categorySlug}`)
+          : await apiFetch('/api/v1/products/getAll')
+
+        const list: BackendProduct[] = res?.data || []
+
+        const mapped: UIProduct[] = list.map(p => ({
+          id: p._id,
+          name: p.name,
+          price: p.price,
+          image:
+            Array.isArray(p.imageUrls) && p.imageUrls.length > 0
+              ? p.imageUrls[0]
+              : '/placeholder.jpg',
+        }))
+
+        console.log('SHOP PRODUCTS:', mapped)
+        setProducts(mapped)
+      } catch (err) {
+        console.error('Failed to load products', err)
+      }
+    })()
+  }, [categorySlug])
+
+  /* ---------------- LOCAL FILTERS ---------------- */
   const filteredProducts = useMemo(() => {
-    return products.filter(product => {
-      const q = queryParam ? queryParam.toLowerCase() : ''
-      const categoryMatch = selectedCategory === 'all' || (product.category || '').toLowerCase() === selectedCategory
-      const priceMatch = product.price >= priceRange[0] && product.price <= priceRange[1]
-      const colorMatch = selectedColor === 'all' || product.color === selectedColor
-      const searchMatch = !q || product.name.toLowerCase().includes(q) || (product.category || '').toLowerCase().includes(q)
-      return categoryMatch && priceMatch && colorMatch && searchMatch
+    return products.filter(p => {
+      const q = queryParam?.toLowerCase() || ''
+      const priceMatch =
+        p.price >= priceRange[0] && p.price <= priceRange[1]
+      const searchMatch =
+        !q || p.name.toLowerCase().includes(q)
+
+      return priceMatch && searchMatch
     })
-  }, [selectedCategory, priceRange, selectedColor, queryParam])
+  }, [products, priceRange, queryParam])
 
   const toggleFavorite = (id: string) => {
     setFavorites(prev =>
@@ -44,173 +76,109 @@ export default function ShopPage() {
     )
   }
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const categoryType = searchParams.get('category')
-        const slug = categoryType && categoryType !== 'all' ? categoryType : null
-
-        const res = slug
-          ? await apiFetch(`/api/v1/products/category/${slug}`)
-          : await apiFetch('/api/v1/products/getAll')
-
-        const list: BackendProduct[] = res?.data || []
-        const mapped: UIProduct[] = list.map(p => ({
-          id: p._id,
-          name: p.name,
-          price: p.price,
-          category: (typeof p.category === 'object' && (p.category?.type || p.category?.name) || '').toString().toLowerCase(),
-          image: (p.imageUrls && p.imageUrls[0]) || '/placeholder.jpg',
-        }))
-        setProducts(mapped)
-      } catch {}
-    })()
-  }, [searchParams])
-
   return (
     <>
       <Header />
+
       <main className="bg-background min-h-screen">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 py-12">
-          <h1 className="text-3xl md:text-4xl font-serif font-light tracking-wide mb-12">
-            Our Collection
+        <div className="max-w-7xl mx-auto px-4 py-12">
+
+          <h1 className="text-4xl font-serif mb-8 capitalize">
+            {categorySlug
+              ? categorySlug.replace('-', ' ')
+              : 'All Products'}
           </h1>
 
           <Suspense>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            {/* Filters Sidebar */}
-            <div className="md:col-span-1">
-              <div className="space-y-8">
-                {/* Category Filter */}
-                <div>
-                  <h3 className="text-sm font-light tracking-wide mb-4 uppercase opacity-75">Category</h3>
-                  <div className="space-y-2">
-                    {categoryOptions.map(cat => (
-                      <button
-                        key={cat}
-                        onClick={() => setSelectedCategory(cat)}
-                        className={`block text-sm font-light ${
-                          selectedCategory === cat
-                            ? 'text-accent font-semibold'
-                            : 'opacity-60 hover:opacity-100'
-                        } transition`}
-                      >
-                        {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
 
-                {/* Price Filter */}
-                <div>
-                  <h3 id="filter-price" className="text-sm font-light tracking-wide mb-4 uppercase opacity-75">Price</h3>
-                  <div className="space-y-2">
-                    <input
-                      type="range"
-                      min="0"
-                      max="500"
-                        id="price-range"
-                        aria-labelledby="filter-price"
-                        value={priceRange[1]}
-                        onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value)])}
-                        className="w-full"
-                    />
-                    <p className="text-xs opacity-60">
-                      ${priceRange[0]} - ${priceRange[1]}
-                    </p>
-                  </div>
-                </div>
+              {/* FILTER SIDEBAR */}
+              <aside>
+                <h3 className="mb-4 text-sm uppercase opacity-70">Price</h3>
+                <input
+                  type="range"
+                  min={0}
+                  max={500}
+                  value={priceRange[1]}
+                  onChange={e =>
+                    setPriceRange([0, Number(e.target.value)])
+                  }
+                  className="w-full"
+                />
+                <p className="text-xs opacity-60 mt-2">
+                  $0 – ${priceRange[1]}
+                </p>
+              </aside>
 
-                {/* Color Filter */}
-                <div>
-                  <h3 className="text-sm font-light tracking-wide mb-4 uppercase opacity-75">Color</h3>
-                  <div className="space-y-2">
-                    {['all', 'black', 'brown', 'Soft Luxe Shades'].map(color => (
-                      <button
-                        key={color}
-                        onClick={() => setSelectedColor(color)}
-                        className={`block text-sm font-light ${
-                          selectedColor === color
-                            ? 'text-accent font-semibold'
-                            : 'opacity-60 hover:opacity-100'
-                        } transition`}
-                      >
-                        {color.charAt(0).toUpperCase() + color.slice(1)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
+              {/* PRODUCTS GRID */}
+              <section className="md:col-span-3">
+                <p className="mb-6 text-sm opacity-60">
+                  Showing {filteredProducts.length} products
+                </p>
 
-            {/* Products Grid */}
-            <div className="md:col-span-3">
-              <p className="text-sm opacity-60 mb-6">
-                Showing {filteredProducts.length} products
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {filteredProducts.map(product => (
-                  <Link key={product.id} href={`/products/${product.id}`} className="group">
-                    <div className="relative overflow-hidden bg-muted aspect-square mb-4">
-                      <Image
-                        src={product.image ?? '/placeholder.jpg'}
-                        alt={product.name}
-                        fill
-                        className="object-cover group-hover:scale-105 transition duration-500"
-                      />
-                      {favorites.includes(product.id) ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault()
-                            toggleFavorite(product.id)
-                          }}
-                          aria-pressed="true"
-                          aria-label="Remove from favorites"
-                          title="Remove from favorites"
-                          className="absolute top-4 right-4 p-2 bg-white rounded-full hover:bg-accent hover:text-accent-foreground transition"
-                        >
-                          <Heart aria-hidden="true" className={`w-5 h-5 fill-current text-accent`} />
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault()
-                            toggleFavorite(product.id)
-                          }}
-                          aria-pressed="false"
-                          aria-label="Add to favorites"
-                          title="Add to favorites"
-                          className="absolute top-4 right-4 p-2 bg-white rounded-full hover:bg-accent hover:text-accent-foreground transition"
-                        >
-                          <Heart aria-hidden="true" className={`w-5 h-5`} />
-                        </button>
-                      )}
-                    </div>
-                    <h3 className="text-sm font-light tracking-wide group-hover:text-accent transition">
-                      {product.name}
-                    </h3>
-                    <p className="text-sm font-serif mt-2">${product.price.toFixed(2)}</p>
-                    <Button
-                          onClick={(e) => {
-                            e.preventDefault()
-                            addToCart({ id: product.id, name: product.name, price: product.price, image: product.image ?? '/placeholder.jpg' })
-                          }}
-                      className="w-full mt-4 bg-primary hover:bg-primary/90 text-primary-foreground"
-                      size="sm"
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  {filteredProducts.map(p => (
+                    <Link
+                      key={p.id}
+                      href={`/products/${p.id}`}
+                      className="group"
                     >
-                      <ShoppingCart className="w-4 h-4 mr-2" />
-                      Add to Cart
-                    </Button>
-                  </Link>
-                ))}
-              </div>
+                      <div className="relative aspect-square bg-muted overflow-hidden mb-4">
+                        <Image
+                          src={p.image}
+                          alt={p.name}
+                          fill
+                          className="object-cover transition group-hover:scale-105"
+                        />
+
+                        <button
+                          onClick={e => {
+                            e.preventDefault()
+                            toggleFavorite(p.id)
+                          }}
+                          className="absolute top-4 right-4 bg-white p-2 rounded-full"
+                        >
+                          <Heart
+                            className={`w-5 h-5 ${
+                              favorites.includes(p.id)
+                                ? 'fill-accent text-accent'
+                                : ''
+                            }`}
+                          />
+                        </button>
+                      </div>
+
+                      <h3 className="text-sm">{p.name}</h3>
+                      <p className="font-serif">
+                        ${p.price.toFixed(2)}
+                      </p>
+
+                      <Button
+                        size="sm"
+                        className="w-full mt-3"
+                        onClick={e => {
+                          e.preventDefault()
+                          addToCart({
+                            id: p.id,
+                            name: p.name,
+                            price: p.price,
+                            image: p.image,
+                          })
+                        }}
+                      >
+                        <ShoppingCart className="w-4 h-4 mr-2" />
+                        Add to Cart
+                      </Button>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+
             </div>
-          </div>
           </Suspense>
         </div>
       </main>
+
       <Footer />
     </>
   )

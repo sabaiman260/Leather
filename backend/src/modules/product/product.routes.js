@@ -3,14 +3,10 @@ import { upload } from "../../core/middleware/multer.js";
 import { isLoggedIn } from "../../core/middleware/isLoggedIn.js";
 import { isAdmin } from "../../core/middleware/isAdmin.js";
 import { validate } from "../../core/middleware/validate.js";
-import {
-  createProductSchema,
-  updateProductSchema,
-} from "../../shared/validators/product.validator.js";
-
+import { createProductSchema, updateProductSchema } from "../../shared/validators/product.validator.js";
 import {
   getAllProducts,
-  getProductsBySlug,
+  getProductsByCategoryId,
   createProduct,
   updateProduct,
   deleteProduct,
@@ -22,7 +18,7 @@ const productRouter = Router();
 
 // Public routes
 productRouter.get("/getAll", getAllProducts);
-productRouter.get("/category/:slug", getProductsBySlug);
+productRouter.get("/category/:categoryId", getProductsByCategoryId); // by ID
 productRouter.get("/get/:id", getProductDetail);
 productRouter.get("/search", searchProducts);
 
