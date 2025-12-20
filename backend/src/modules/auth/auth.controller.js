@@ -13,14 +13,25 @@ import S3UploadHelper from "../../shared/helpers/s3Upload.js";
 
 //-------------------- REGISTER USER --------------------//
 const registerUser = asyncHandler(async (req, res) => {
-    const { userName, userEmail, userPassword, userRole, phoneNumber, userAddress } = req.body;
+    const {
+        userName,
+        userEmail,
+        userPassword,
+        userRole,
+        phoneNumber,
+        userAddress
+    } = req.body;
 
+    // 1️⃣ Check existing user
     const existingUser = await User.findOne({ userEmail });
-    if (existingUser) throw new ApiError(400, "User already exists");
+    if (existingUser) {
+        throw new ApiError(400, "User already exists");
+    }
 
     let profileImageKey = null;
     let profileSignedUrl = null;
 
+    // 2️⃣ Upload profile image (optional)
     if (req.file) {
         try {
             const uploadResult = await S3UploadHelper.uploadFile(req.file, "user-profile");
@@ -29,11 +40,11 @@ const registerUser = asyncHandler(async (req, res) => {
                 profileSignedUrl = await S3UploadHelper.getSignedUrl(uploadResult.key);
             }
         } catch (error) {
-            console.error("Error uploading image:", error);
             throw new ApiError(500, "Error uploading profile image");
         }
     }
 
+    // 3️⃣ Create user (NOT verified)
     const user = await User.create({
         userName,
         userEmail,
@@ -41,49 +52,54 @@ const registerUser = asyncHandler(async (req, res) => {
         userRole: userRole || "buyer",
         phoneNumber,
         userAddress,
-        userIsVerified:true, //userRole === "admin" ? true : false,
+        userIsVerified: false,
         ...(profileImageKey && { profileImage: profileImageKey })
     });
 
-    if (!user) throw new ApiError(400, "User creation failed");
-
-    // ---------------- Email Verification Token ---------------- //
-    if (userRole !== "admin") {
-        // In development, auto-verify to simplify local testing
-        if (process.env.NODE_ENV !== "production") {
-            user.userIsVerified = true;
-            await user.save();
-        } else {
-            const { hashedToken, tokenExpiry } = user.generateTemporaryToken();
-
-            user.userVerificationToken = hashedToken;
-            user.userVerificationTokenExpiry = tokenExpiry;
-            await user.save();
-
-            const base = process.env.BASE_URL || "http://localhost:3000";
-            const verificationLink = `${base}/api/v1/auth/verify/${hashedToken}`;
-
-            await mailTransporter.sendMail({
-                from: process.env.MAILTRAP_SENDEREMAIL,
-                to: userEmail,
-                subject: "Verify your email",
-                html: userVerificationMailBody(userName, verificationLink)
-            });
-        }
+    if (!user) {
+        throw new ApiError(400, "User creation failed");
     }
 
-    const response = {
-        userId: user._id,
-        userName: user.userName,
-        userEmail: user.userEmail,
-        userRole: user.userRole,
-        phoneNumber: user.phoneNumber,
-        userAddress: user.userAddress,
-        ...(profileSignedUrl && { profileImageUrl: profileSignedUrl }),
-    };
+    // 4️⃣ Generate verification token
+    const { hashedToken, tokenExpiry } = user.generateTemporaryToken();
 
-    return res.status(201).json(new ApiResponse(201, response, "User registered successfully"));
+    user.userVerificationToken = hashedToken;
+    user.userVerificationTokenExpiry = tokenExpiry;
+    await user.save();
+
+    const base = process.env.BASE_URL || "http://localhost:3000";
+    const verificationLink = `${base}/api/v1/auth/verify/${hashedToken}`;
+
+    // 5️⃣ Send verification email (DO NOT fail registration)
+    try {
+        await mailTransporter.sendMail({
+            from: process.env.MAILTRAP_SENDEREMAIL,
+            to: userEmail,
+            subject: "Verify your email",
+            html: userVerificationMailBody(userName, verificationLink)
+        });
+    } catch (error) {
+        console.error("Email sending failed:", error.message);
+    }
+
+    // 6️⃣ Response
+    return res.status(201).json(
+        new ApiResponse(
+            201,
+            {
+                userId: user._id,
+                userName: user.userName,
+                userEmail: user.userEmail,
+                userRole: user.userRole,
+                phoneNumber: user.phoneNumber,
+                userAddress: user.userAddress,
+                ...(profileSignedUrl && { profileImageUrl: profileSignedUrl })
+            },
+            "Registration successful. Please verify your email."
+        )
+    );
 });
+
 
 //-------------------- VERIFY EMAIL --------------------//
 const verifyUserEmail = asyncHandler(async (req, res) => {

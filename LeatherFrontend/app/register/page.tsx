@@ -33,10 +33,18 @@ export default function RegisterPage() {
                 setLoading(true)
                 setError(null)
                 try {
-                  await apiFetch('/api/v1/auth/register', {
-                    method: 'POST',
-                    body: JSON.stringify({ userName: name, userEmail: email, userPassword: password })
-                  })
+                      await apiFetch('/api/v1/auth/register', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    userName: name,
+    userEmail: email,
+    userPassword: password
+  })
+})
+
                   alert('Registered! Check your email to verify.')
                   window.location.href = '/login'
                 } catch (err: any) {

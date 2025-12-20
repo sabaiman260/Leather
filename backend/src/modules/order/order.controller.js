@@ -2,20 +2,30 @@
 //guest user:Saved in guestDetails + copied to shippingDetails
 import { asyncHandler } from "../../core/utils/async-handler.js";
 import Order from "../../models/Order.model.js";
+import Payment from "../../models/Payment.model.js";
 import { ApiError } from "../../core/utils/api-error.js";
 import { ApiResponse } from "../../core/utils/api-response.js";
 
 //-------------------- CREATE ORDER --------------------//
 const createOrder = asyncHandler(async (req, res) => {
-    const { items, totalAmount, guestDetails } = req.body;
+    const { items, totalAmount, guestDetails, paymentMethod } = req.body;
 
     if (!items || items.length === 0) {
         throw new ApiError(400, "Order items are required");
     }
 
+    // Map incoming items to Order model fields
+    const mappedItems = items.map((i) => ({
+        product: i.productId,
+        variant: i.variantId,
+        quantity: i.quantity,
+        price: i.price
+    }));
+
     let orderData = {
-        items,
-        totalAmount
+        items: mappedItems,
+        totalAmount,
+        paymentMethod
     };
 
     // ---------------- BUYER CHECKOUT ----------------
@@ -24,15 +34,10 @@ const createOrder = asyncHandler(async (req, res) => {
 
         // If buyer provides new checkout details → use them
         if (guestDetails) {
-            orderData.shippingDetails = guestDetails;
+            orderData.shippingAddress = guestDetails.address;
         } else {
             // Otherwise auto-fill from profile
-            orderData.shippingDetails = {
-                fullName: req.user.userName,
-                email: req.user.userEmail,
-                phone: req.user.phoneNumber,
-                address: req.user.userAddress
-            };
+            orderData.shippingAddress = req.user.userAddress;
         }
     } 
 
@@ -43,10 +48,20 @@ const createOrder = asyncHandler(async (req, res) => {
         }
 
         orderData.guestDetails = guestDetails;
-        orderData.shippingDetails = guestDetails;
+        orderData.shippingAddress = guestDetails.address;
     }
 
     const newOrder = await Order.create(orderData);
+
+    // For COD, auto-create a pending Payment record for admin to manage
+    if (paymentMethod === "cod") {
+        await Payment.create({
+            order: newOrder._id,
+            method: "cod",
+            amount: totalAmount,
+            status: "pending"
+        });
+    }
 
     return res
         .status(201)
@@ -87,3 +102,25 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
 });
 
 export { createOrder, getUserOrders, getOrder, getAllOrders, updateOrderStatus };
+ 
+//-------------------- UPDATE ORDER PAYMENT STATUS --------------------//
+const updateOrderPaymentStatus = asyncHandler(async (req, res) => {
+    const { status } = req.body;
+    const order = await Order.findById(req.params.id);
+    if (!order) throw new ApiError(404, "Order not found");
+
+    order.paymentStatus = status;
+    await order.save();
+
+    const payment = await Payment.findOne({ order: order._id });
+    if (payment) {
+        if (status === "paid") payment.status = "success";
+        else if (status === "failed") payment.status = "failed";
+        else payment.status = "pending";
+        await payment.save();
+    }
+
+    return res.status(200).json(new ApiResponse(200, order, "Order payment updated"));
+});
+
+export { updateOrderPaymentStatus };

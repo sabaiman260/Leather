@@ -31,8 +31,10 @@ const getProductsByCategoryId = asyncHandler(async (req, res) => {
   const { categoryId } = req.params;
   if (!categoryId) throw new ApiError(400, "Category is required");
 
-  // Find the category by slug
-  const category = await Category.findOne({ slug: categoryId });
+  let category = await Category.findOne({ slug: categoryId });
+  if (!category) {
+    category = await Category.findById(categoryId);
+  }
   if (!category) throw new ApiError(404, "Category not found");
 
   // Fetch products by category _id
@@ -91,30 +93,50 @@ const createProduct = asyncHandler(async (req, res) => {
   // Upload images to S3
   let imageKeys = [];
   if (Array.isArray(req.files) && req.files.length > 0) {
-    const uploads = await S3UploadHelper.uploadMultipleFiles(
-      req.files,
-      "product-images"
-    );
-    imageKeys = uploads.map((u) => u.key);
+    try {
+      const uploads = await S3UploadHelper.uploadMultipleFiles(
+        req.files,
+        "product-images"
+      );
+      imageKeys = uploads.map((u) => u.key);
+    } catch (err) {
+      console.error("Product image upload failed:", err);
+      imageKeys = [];
+    }
   }
 
-  const product = await Product.create({
-    name,
-    description,
-    price,
-    discount,
-    stock,
-    category,
-    sizes,
-    colors,
-    specs,
-    images: imageKeys,
-    isActive,
-  });
+  let product;
+  try {
+    product = await Product.create({
+      name,
+      description,
+      price,
+      discount,
+      stock,
+      category,
+      sizes,
+      colors,
+      specs,
+      images: imageKeys,
+      isActive,
+    });
+  } catch (err) {
+    if (err && (err.code === 11000 || err.name === "MongoServerError")) {
+      throw new ApiError(400, "Product with the same name already exists");
+    }
+    console.error("Product create error:", err);
+    throw new ApiError(500, "Failed to create product");
+  }
 
-  const imageUrls = await Promise.all(
-    product.images.map((key) => S3UploadHelper.getSignedUrl(key))
-  );
+  let imageUrls = [];
+  try {
+    imageUrls = await Promise.all(
+      product.images.map((key) => S3UploadHelper.getSignedUrl(key))
+    );
+  } catch (err) {
+    console.error("Product image signed URL generation failed:", err);
+    imageUrls = [];
+  }
 
   return res
     .status(201)
@@ -163,18 +185,28 @@ const updateProduct = asyncHandler(async (req, res) => {
 
   // Upload new images
   if (Array.isArray(req.files) && req.files.length > 0) {
-    const uploads = await S3UploadHelper.uploadMultipleFiles(
-      req.files,
-      "product-images"
-    );
-    product.images = uploads.map((u) => u.key);
+    try {
+      const uploads = await S3UploadHelper.uploadMultipleFiles(
+        req.files,
+        "product-images"
+      );
+      product.images = uploads.map((u) => u.key);
+    } catch (err) {
+      console.error("Product image upload failed:", err);
+    }
   }
 
   await product.save();
 
-  const imageUrls = await Promise.all(
-    product.images.map((key) => S3UploadHelper.getSignedUrl(key))
-  );
+  let imageUrls = [];
+  try {
+    imageUrls = await Promise.all(
+      product.images.map((key) => S3UploadHelper.getSignedUrl(key))
+    );
+  } catch (err) {
+    console.error("Product image signed URL generation failed:", err);
+    imageUrls = [];
+  }
 
   return res
     .status(200)

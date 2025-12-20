@@ -1,12 +1,14 @@
-import {
-    PutObjectCommand,
-    DeleteObjectCommand,
-    GetObjectCommand,
-    HeadObjectCommand
-} from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import s3Client from '../../core/config/s3Config.js';
+import { v2 as cloudinary } from 'cloudinary';
 import crypto from 'crypto';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 const generateFileName = (bytes = 32) => crypto.randomBytes(bytes).toString('hex');
 
@@ -19,30 +21,28 @@ class S3UploadHelper {
 
             const fileName = generateFileName();
             const fileExtension = file.originalname.split('.').pop();
-            const key = folder ? `${folder}/${fileName}.${fileExtension}` : `${fileName}.${fileExtension}`;
+            const publicId = folder ? `${folder}/${fileName}` : `${fileName}`;
 
-            const command = new PutObjectCommand({
-                Bucket: process.env.AWS_BUCKET_NAME,
-                Key: key,
-                Body: file.buffer,
-                ContentType: file.mimetype,
-                Metadata: {
-                    originalname: file.originalname,
-                    uploadedAt: new Date().toISOString()
-                }
+            const base64 = file.buffer.toString('base64');
+            const dataUri = `data:${file.mimetype};base64,${base64}`;
+
+            const result = await cloudinary.uploader.upload(dataUri, {
+              folder: folder || undefined,
+              public_id: publicId,
+              resource_type: 'image',
+              overwrite: true,
             });
 
-            await s3Client.send(command);
-
             return {
-                key: key,
-                fileName: file.originalname,
-                size: file.size,
-                mimetype: file.mimetype,
-                uploadedAt: new Date().toISOString()
+              key: result.public_id,
+              url: result.secure_url,
+              fileName: file.originalname,
+              size: file.size,
+              mimetype: file.mimetype,
+              uploadedAt: new Date().toISOString(),
             };
         } catch (error) {
-            console.error('S3 upload error:', error);
+            console.error('Cloudinary upload error:', error);
             throw new Error(`File upload failed: ${error.message}`);
         }
     }
@@ -67,15 +67,10 @@ class S3UploadHelper {
                 throw new Error('File key is required');
             }
 
-            const command = new DeleteObjectCommand({
-                Bucket: process.env.AWS_BUCKET_NAME,
-                Key: key,
-            });
-
-            await s3Client.send(command);
+            await cloudinary.uploader.destroy(key, { invalidate: true });
             return { success: true, message: 'File deleted successfully' };
         } catch (error) {
-            console.error('S3 delete error:', error);
+            console.error('Cloudinary delete error:', error);
             throw new Error(`File deletion failed: ${error.message}`);
         }
     }
@@ -101,13 +96,8 @@ class S3UploadHelper {
                 throw new Error('File key is required');
             }
 
-            const command = new GetObjectCommand({
-                Bucket: process.env.AWS_BUCKET_NAME,
-                Key: key,
-            });
-
-            const signedUrl = await getSignedUrl(s3Client, command, { expiresIn });
-            return signedUrl;
+            const url = cloudinary.url(key, { secure: true });
+            return url;
         } catch (error) {
             console.error('Signed URL generation error:', error);
             throw new Error(`Failed to generate signed URL: ${error.message}`);
@@ -116,18 +106,17 @@ class S3UploadHelper {
 
     static async getFileMetadata(key) {
         try {
-            const command = new HeadObjectCommand({
-                Bucket: process.env.AWS_BUCKET_NAME,
-                Key: key,
-            });
-
-            const metadata = await s3Client.send(command);
+            const res = await cloudinary.api.resource(key);
             return {
-                key,
-                size: metadata.ContentLength,
-                lastModified: metadata.LastModified,
-                contentType: metadata.ContentType,
-                metadata: metadata.Metadata
+              key,
+              size: res.bytes,
+              lastModified: res.created_at,
+              contentType: res.resource_type,
+              metadata: {
+                format: res.format,
+                width: res.width,
+                height: res.height,
+              },
             };
         } catch (error) {
             console.error('File metadata error:', error);

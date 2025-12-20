@@ -28,6 +28,12 @@ const orderSchema = new mongoose.Schema({
 
     totalAmount: { type: Number, required: true },
 
+    paymentMethod: {
+        type: String,
+        enum: ["cod", "jazzcash", "easypaisa", "card"],
+        required: true
+    },
+
     paymentStatus: {
         type: String,
         enum: ["pending", "paid", "failed"],

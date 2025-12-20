@@ -2,36 +2,40 @@
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000";
 
 export async function apiFetch(path: string, options: RequestInit = {}) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
+  const token =
+    typeof window !== 'undefined'
+      ? localStorage.getItem('accessToken')
+      : null
+
   const res = await fetch(`${API_BASE_URL}${path}`, {
-    credentials: "include",
+    ...options, // ✅ move FIRST
+    credentials: 'include',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.headers || {}),
     },
-    ...options,
-  });
-  let body: any = null;
-  try {
-    body = await res.json();
-  } catch {
-    // non-JSON response
-  }
-  if (!res.ok) {
-    const cleanMessage = (
-      (body && (body.message || body.error)) ||
-      (res.status === 401 ? "Unauthorized" :
-       res.status === 403 ? "Forbidden" :
-       res.status === 404 ? "Not found" :
-       res.status === 400 ? "Bad request" :
-       "Something went wrong")
-    );
-    throw new Error(cleanMessage);
-  }
-  return body;
-}
+  })
 
+  let body: any = null
+  try {
+    body = await res.json()
+  } catch {}
+
+  if (!res.ok) {
+    throw new Error(
+      body?.message ||
+        body?.error ||
+        (res.status === 401
+          ? 'Unauthorized'
+          : res.status === 403
+          ? 'Forbidden'
+          : 'Something went wrong')
+    )
+  }
+
+  return body
+}
 export type BackendProduct = {
   _id: string;
   name: string;

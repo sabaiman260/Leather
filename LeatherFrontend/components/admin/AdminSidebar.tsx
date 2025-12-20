@@ -11,6 +11,8 @@ export default function AdminSidebar() {
     { href: '/admin/settings', label: 'Settings' },
     { href: '/admin/analytics', label: 'Analytics' },
     { href: '/admin/logout', label: 'Logout' },
+    { href: '/admin/orders', label: 'Orders' },
+
   ]
   return (
     <aside className="w-64 shrink-0 border-r border-border">

@@ -45,7 +45,15 @@ export default function OrderConfirmationPage() {
               </div>
               <div className="flex justify-between">
                 <span className="opacity-60">Payment Method:</span>
-                <span className="font-semibold">{order?.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Card'}</span>
+                <span className="font-semibold">
+                  {order?.paymentMethod === 'cod'
+                    ? 'Cash on Delivery'
+                    : order?.paymentMethod === 'jazzcash'
+                    ? 'JazzCash'
+                    : order?.paymentMethod === 'easypaisa'
+                    ? 'EasyPaisa'
+                    : 'Card'}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="opacity-60">Total:</span>

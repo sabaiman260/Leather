@@ -1,4 +1,5 @@
 "use client";
+import Link from 'next/link'
 
 export default function LeatherShowcase() {
   const images = [
@@ -24,9 +25,13 @@ export default function LeatherShowcase() {
             Each piece is designed for durability, elegance, and timeless style.
             Perfect for fashion enthusiasts and professionals alike.
           </p>
-          <button className="bg-brand-brown text-white px-6 py-3 rounded-lg shadow-md hover:bg-black transition">
-            Explore Collection
-          </button>
+         <Link
+  href="/shop"
+  className="inline-block bg-brand-brown text-white px-6 py-3 rounded-lg shadow-md hover:bg-black transition"
+>
+  Explore Collection
+</Link>
+
         </div>
 
         {/* Right 3D Slider */}

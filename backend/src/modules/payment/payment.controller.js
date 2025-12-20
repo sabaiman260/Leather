@@ -20,6 +20,12 @@ const createPayment = asyncHandler(async (req, res) => {
         status: "pending"
     });
 
+    // For COD, mark order paymentStatus as pending immediately
+    if (method === "cod") {
+        order.paymentStatus = "pending";
+        await order.save();
+    }
+
     return res.status(201).json(new ApiResponse(201, payment, "Payment initiated successfully"));
 });
 
@@ -33,6 +39,15 @@ const updatePaymentStatus = asyncHandler(async (req, res) => {
     payment.transactionId = transactionId || payment.transactionId;
     await payment.save();
 
+    // Reflect status on the related order
+    const order = await Order.findById(payment.order);
+    if (order) {
+        if (payment.status === "success") order.paymentStatus = "paid";
+        else if (payment.status === "failed") order.paymentStatus = "failed";
+        else order.paymentStatus = "pending";
+        await order.save();
+    }
+
     return res.status(200).json(new ApiResponse(200, payment, "Payment updated successfully"));
 });
 
@@ -43,4 +58,25 @@ const getPayment = asyncHandler(async (req, res) => {
     return res.status(200).json(new ApiResponse(200, payment, "Payment fetched successfully"));
 });
 
-export { createPayment, updatePaymentStatus, getPayment };
+//-------------------- GATEWAY WEBHOOK --------------------//
+const gatewayWebhook = asyncHandler(async (req, res) => {
+    const { paymentId, status, transactionId } = req.body;
+    const payment = await Payment.findById(paymentId);
+    if (!payment) throw new ApiError(404, "Payment not found");
+
+    payment.status = status || payment.status;
+    payment.transactionId = transactionId || payment.transactionId;
+    await payment.save();
+
+    const order = await Order.findById(payment.order);
+    if (order) {
+        if (payment.status === "success") order.paymentStatus = "paid";
+        else if (payment.status === "failed") order.paymentStatus = "failed";
+        else order.paymentStatus = "pending";
+        await order.save();
+    }
+
+    return res.status(200).json(new ApiResponse(200, payment, "Webhook processed"));
+});
+
+export { createPayment, updatePaymentStatus, getPayment, gatewayWebhook };

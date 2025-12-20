@@ -19,9 +19,15 @@ export const createOrderSchema = z.object({
 
     totalAmount: z.number().min(1, "Total amount must be at least 1"),
 
+    paymentMethod: z.enum(["cod", "jazzcash", "easypaisa", "card"]),
+
     guestDetails: guestDetailsSchema.optional()
 });
 
 export const updateOrderStatusSchema = z.object({
-    status: z.enum(["pending", "processing", "shipped", "completed", "cancelled"])
+    status: z.enum(["pending", "processing", "shipped", "delivered", "cancelled"])
+});
+
+export const updateOrderPaymentSchema = z.object({
+    status: z.enum(["pending", "paid", "failed"])
 });
