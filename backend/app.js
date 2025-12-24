@@ -1,5 +1,5 @@
 import express from "express";
-import dotenv from "dotenv"
+import "dotenv/config";
 import cors from "cors"
 import cookieParser from "cookie-parser";
 import { errorHandler } from "./src/core/middleware/errorHandler.js";
@@ -15,8 +15,6 @@ import transactionRouter from "./src/modules/transaction/transaction.routes.js";
 
 const app = express()
 
-dotenv.config()
-
 app.use(cors({
   origin: (origin, callback) => {
     const allowed = ["http://localhost:3000", "http://localhost:3001", "http://localhost:5173"];
@@ -30,7 +28,6 @@ app.use(cors({
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
-
 
 // app.use(cors());
 app.use(cookieParser());

@@ -100,27 +100,37 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
 
     return res.status(200).json(new ApiResponse(200, order, "Order status updated"));
 });
-
-export { createOrder, getUserOrders, getOrder, getAllOrders, updateOrderStatus };
  
 //-------------------- UPDATE ORDER PAYMENT STATUS --------------------//
 const updateOrderPaymentStatus = asyncHandler(async (req, res) => {
     const { status } = req.body;
+
     const order = await Order.findById(req.params.id);
     if (!order) throw new ApiError(404, "Order not found");
 
+    if (order.status === "cancelled") {
+        throw new ApiError(400, "Cannot update payment for a cancelled order");
+    }
+
+    if (order.paymentStatus === "paid") {
+        throw new ApiError(400, "Order is already paid");
+    }
+
     order.paymentStatus = status;
     await order.save();
-
     const payment = await Payment.findOne({ order: order._id });
+
     if (payment) {
         if (status === "paid") payment.status = "success";
         else if (status === "failed") payment.status = "failed";
         else payment.status = "pending";
+
         await payment.save();
     }
 
-    return res.status(200).json(new ApiResponse(200, order, "Order payment updated"));
+    return res
+        .status(200)
+        .json(new ApiResponse(200, order, "Order payment updated successfully"));
 });
 
-export { updateOrderPaymentStatus };
+export { createOrder, getUserOrders, getOrder, getAllOrders, updateOrderStatus, updateOrderPaymentStatus };

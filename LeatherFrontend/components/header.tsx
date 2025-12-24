@@ -1,13 +1,13 @@
-
-
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { useRouter } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { ShoppingCart, Menu, X, Search } from 'lucide-react'
 import { useCart } from '@/components/cart-context'
+
+const NAV_TEXT_COLOR = 'text-[#E6D8C8]'
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false)
@@ -23,77 +23,114 @@ export default function Header() {
 
   return (
     <>
-      {/* Desktop Header */}
-        <header className="hidden md:block bg-header-leather text-white fixed top-0 w-full z-50 shadow-sm">
-        <div className="max-w-7xl container-max px-6 py-6 flex justify-between items-center">
-          <Link href="/" className="text-2xl font-serif font-light tracking-widest text-white">FlexLeather</Link>
+      {/* ================= DESKTOP HEADER ================= */}
+      <header className="hidden md:block bg-header-leather fixed top-0 w-full z-50 shadow-sm">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
 
-          <div className="flex-1 mx-8 flex items-center">
-            <div className="w-full flex items-center border border-border bg-white/5 px-3 py-2 rounded-md backdrop-blur-sm shadow-sm">
-              <Search className="w-4 h-4 text-white/80 cursor-pointer" onClick={() => { if (search) router.push(`/shop?q=${encodeURIComponent(search)}`) }} />
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-4 group">
+            <div className="relative w-14 h-14 transition-transform group-hover:scale-105">
+              <Image
+                src="/logos.png"
+                alt="Flex Leather Logo"
+                fill
+                className="object-contain"
+                priority
+              />
+            </div>
+            <div className={`flex flex-col ${NAV_TEXT_COLOR}`}>
+              <span className="text-[10px] tracking-[0.3em] uppercase opacity-70">
+                ESTD 2025
+              </span>
+              <span className="text-[15px] font-serif font-bold tracking-widest uppercase leading-none">
+                Flex Leather
+              </span>
+            </div>
+          </Link>
+
+          {/* Search */}
+          <div className="flex-1 mx-12 max-w-md">
+            <div className="flex items-center border border-white/20 bg-white/10 px-4 py-2 rounded-full focus-within:bg-white/20 transition-all">
+              <Search
+                className="w-4 h-4 text-[#E6D8C8] cursor-pointer"
+                onClick={() =>
+                  search && router.push(`/shop?q=${encodeURIComponent(search)}`)
+                }
+              />
               <input
                 type="text"
                 placeholder="Search products..."
-                className="flex-1 ml-2 bg-transparent outline-none text-sm text-white placeholder:text-white/70"
+                className="flex-1 ml-2 bg-transparent outline-none text-sm text-[#E6D8C8] placeholder:text-[#E6D8C8]/60"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && search.trim()) { router.push(`/shop?q=${encodeURIComponent(search.trim())}`) } }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && search.trim()) {
+                    router.push(`/shop?q=${encodeURIComponent(search.trim())}`)
+                  }
+                }}
               />
             </div>
           </div>
 
-          <nav className="flex gap-8 items-center">
-            <Link href="/shop" className="nav-link">Shop</Link>
-            <Link href="/collections" className="nav-link">Collections</Link>
-            <Link href="/about" className="nav-link">About</Link>
-            <Link href="/login" className="nav-link">Account</Link>
-            <Link href="/cart" className="relative">
-              <ShoppingCart className="w-5 h-5 text-white" />
-              <span className="absolute -top-2 -right-2 bg-accent text-accent-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center">{totalItems}</span>
+          {/* Navigation */}
+          <nav className={`flex gap-8 items-center font-medium text-sm tracking-wide ${NAV_TEXT_COLOR}`}>
+            <Link href="/shop" className="hover:opacity-70 transition">Shop</Link>
+            <Link href="/collections" className="hover:opacity-70 transition">Collections</Link>
+            <Link href="/about" className="hover:opacity-70 transition">About</Link>
+            <Link href="/login" className="hover:opacity-70 transition">Account</Link>
+
+            <Link href="/cart" className="relative p-2 hover:bg-white/10 rounded-full transition">
+              <ShoppingCart className="w-5 h-5 text-[#E6D8C8]" />
+              {totalItems > 0 && (
+                <span className="absolute top-0 right-0 bg-[#E6D8C8] text-black font-bold text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
+                  {totalItems}
+                </span>
+              )}
             </Link>
           </nav>
         </div>
-        {/* subtle blurred separator instead of a sharp border */}
-        <div aria-hidden style={{ position: 'absolute', left: 0, right: 0, bottom: '-6px', height: '12px', pointerEvents: 'none', background: 'linear-gradient(90deg, rgba(0,0,0,0.18), rgba(0,0,0,0.06), rgba(0,0,0,0.18))', filter: 'blur(6px)' }} />
       </header>
 
-      {/* Mobile Header */}
-        <header className="md:hidden bg-header-leather text-white fixed top-0 w-full z-50 shadow-sm">
-        <div className="px-4 py-4 flex justify-between items-center">
-          <Link href="/" className="text-xl font-serif font-light tracking-widest text-white">FlexLeather</Link>
-          <div className="flex gap-4 items-center">
-            <Link href="/cart" className="relative">
-              <ShoppingCart className="w-5 h-5 text-white" />
-              <span className="absolute -top-2 -right-2 bg-accent text-accent-foreground text-xs rounded-full w-4 h-4 flex items-center justify-center">{totalItems}</span>
+      {/* ================= MOBILE HEADER ================= */}
+      <header className="md:hidden bg-header-leather fixed top-0 w-full z-50 shadow-sm">
+        <div className="px-4 py-3 flex justify-between items-center">
+
+          {/* Mobile Logo */}
+          <Link href="/" className="flex items-center gap-3">
+            <div className="relative w-10 h-10">
+              <Image
+                src="/logo.png"
+                alt="Flex Leather Logo"
+                fill
+                className="object-contain"
+                priority
+              />
+            </div>
+            <span className={`text-lg font-serif tracking-widest uppercase ${NAV_TEXT_COLOR}`}>
+              Flex Leather
+            </span>
+          </Link>
+
+          {/* Mobile Actions */}
+          <div className="flex gap-2 items-center">
+            <Link href="/cart" className="relative p-2">
+              <ShoppingCart className="w-5 h-5 text-[#E6D8C8]" />
+              {totalItems > 0 && (
+                <span className="absolute top-0 right-0 bg-[#E6D8C8] text-black text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                  {totalItems}
+                </span>
+              )}
             </Link>
-            <button onClick={() => setIsOpen(!isOpen)} aria-label="Toggle menu" className="p-2 rounded-md hover:bg-white/10 transition">
-              {isOpen ? <X className="w-6 h-6 text-white" /> : <Menu className="w-6 h-6 text-white" />}
+
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className="p-2"
+              aria-label="Toggle Menu"
+            >
+              {isOpen ? <X className="text-[#E6D8C8]" /> : <Menu className="text-[#E6D8C8]" />}
             </button>
           </div>
         </div>
-
-        {isOpen && (
-            <nav className="border-t border-border px-4 py-4 space-y-4 bg-brand-brown rounded-b-lg">
-            <div className="flex items-center border border-border bg-muted px-3 py-2">
-              <div className="flex items-center border border-border bg-muted/20 px-3 py-2 rounded-md backdrop-blur-sm ring-1 ring-accent/20">
-                <Search className="w-4 h-4 text-white/90" />
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  className="flex-1 ml-2 bg-transparent outline-none text-sm placeholder:text-white/70"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && search.trim()) { router.push(`/shop?q=${encodeURIComponent(search.trim())}`) } }}
-                />
-              </div>
-            </div>
-
-            <Link href="/shop" className="block text-sm font-light tracking-wide text-white hover:text-accent transition">Shop</Link>
-            <Link href="/collections" className="block text-sm font-light tracking-wide text-white hover:text-accent transition">Collections</Link>
-            <Link href="/about" className="block text-sm font-light tracking-wide text-white hover:text-accent transition">About</Link>
-            <Link href="/login" className="block text-sm font-light tracking-wide text-white hover:text-accent transition">Account</Link>
-          </nav>
-        )}
       </header>
     </>
   )

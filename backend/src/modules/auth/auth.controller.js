@@ -100,7 +100,6 @@ const registerUser = asyncHandler(async (req, res) => {
     );
 });
 
-
 //-------------------- VERIFY EMAIL --------------------//
 const verifyUserEmail = asyncHandler(async (req, res) => {
     const { token } = req.params;
@@ -272,11 +271,22 @@ export {
 export const getMe = asyncHandler(async (req, res) => {
     const user = await User.findById(req.user._id);
     if (!user) throw new ApiError(404, "User not found");
+
+    let profileSignedUrl = null;
+    if (user.profileImage) {
+        try {
+            profileSignedUrl = await S3UploadHelper.getSignedUrl(user.profileImage);
+        } catch {}
+    }
+
     return res.status(200).json(new ApiResponse(200, {
         userId: user._id,
         userName: user.userName,
         userEmail: user.userEmail,
         userRole: user.userRole,
-        userIsVerified: user.userIsVerified
+        phoneNumber: user.phoneNumber,
+        userAddress: user.userAddress,
+        userIsVerified: user.userIsVerified,
+        profileImage: profileSignedUrl
     }, "OK"));
 });

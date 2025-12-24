@@ -219,7 +219,7 @@ export default function Footer() {
           {/* Social Links */}
           <div className="flex gap-6 mt-4 md:mt-0">
             <a
-              href="https://www.instagram.com/flexleather"
+              href="https://www.instagram.com/flexleather.official/"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Instagram"
@@ -229,7 +229,7 @@ export default function Footer() {
             </a>
 
             <a
-              href="https://www.facebook.com/flexleather"
+              href="https://www.facebook.com/profile.php?id=61585260157289"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Facebook"
